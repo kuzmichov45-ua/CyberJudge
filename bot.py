@@ -55,23 +55,19 @@ def render_text(data):
     return text
 
 @dp.message_handler(commands=['poll'])
-@dp.channel_post_handler(commands=['poll']) 
+@dp.channel_post_handler(commands=['poll'])
 async def start_poll(message: types.Message):
     """Команда /poll создает новый опрос"""
-    
-    # Отправляем сообщение напрямую в тот чат/канал, откуда пришла команда
     await bot.send_message(
         chat_id=message.chat.id,
         text=render_text({}),
         reply_markup=get_keyboard(),
         parse_mode="Markdown"
     )
-
-    # Удаляем само сообщение с командой /poll
     try:
         await message.delete()
     except Exception as e:
-        logging.error(f"Не удалось удалить сообщение: {e}")
+        logging.error(f"Ошибка удаления: {e}")
 
 @dp.callback_query_handler()
 async def handle_vote(callback_query: types.CallbackQuery):

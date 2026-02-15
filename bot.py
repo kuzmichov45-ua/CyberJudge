@@ -92,6 +92,6 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # Всплывающее уведомление в Telegram: "Голос принят"
     await callback_query.answer(f"Принято: {user_name}")
 
-if__name__=="__main__":
+if __name__ == "__main__":
     # Запуск бота
     executor.start_polling(dp, skip_updates=True)

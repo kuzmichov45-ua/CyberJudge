@@ -55,7 +55,7 @@ def render_text(data):
     return text
 
 @dp.message_handler(commands=['poll'])
-@dp.channel_post_handler(commands=['poll'])
+@dp.channel_post_handler(lambda message: message.text == '/poll')
 async def start_poll(message: types.Message):
     """Команда /poll создает новый опрос"""
     await bot.send_message(
@@ -74,8 +74,6 @@ async def handle_vote(callback_query: types.CallbackQuery):
     """Обработка нажатий на кнопки"""
     user_name = callback_query.from_user.full_name
     vote_type = callback_query.data
-    
-    # Записываем или обновляем голос пользователя
     votes[user_name] = vote_type
     
     # Редактируем текущее сообщение, обновляя текст списка

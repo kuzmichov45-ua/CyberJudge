@@ -111,7 +111,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # 1. Сохраняем голос, чтобы данные не терялись при перезапуске
     save_votes(votes)
 
-    try:
+try:
         # 1. Сначала сохраняем ID чата
         chat_id = callback_query.message.chat.id
 
@@ -125,16 +125,15 @@ async def handle_vote(callback_query: types.CallbackQuery):
         await bot.send_message(
             chat_id=chat_id,
             text=render_text(votes),
-            reply_markup=get_keyboard(),
-            parse_mode="Markdown"
+            reply_markup=get_keyboard()
         )
     except Exception as e:
         logging.error(f"Ошибка перемещения сообщения: {e}")
 
     # 4. Всплывающее уведомление
     await callback_query.answer(f"Принято: {user_full_name}")
-    
+
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
     bot.delete_webhook(drop_pending_updates=True)
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True) 

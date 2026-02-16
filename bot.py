@@ -109,5 +109,6 @@ async def handle_vote(callback_query: types.CallbackQuery):
     await callback_query.answer(f"Принято: {user_full_name}")
 
 if __name__ == "__main__":
-    # Запуск бота
+    # Эта строка принудительно удаляет старые вебхуки и зависшие сессии
+    bot.delete_webhook(drop_pending_updates=True)
     executor.start_polling(dp, skip_updates=True)

@@ -134,10 +134,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # 4. Всплывающее уведомление
     await callback_query.answer(f"Принято: {user_full_name}")
     
-    if __name__ == "__main__":
-    # 1. Запуск Flask в отдельном потоке (4 пробела!)
+if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
-
-    # 2. Очистка сессий и запуск бота (4 пробела!)
     bot.delete_webhook(drop_pending_updates=True)
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True

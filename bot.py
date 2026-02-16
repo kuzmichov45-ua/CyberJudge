@@ -33,7 +33,7 @@ def load_votes():
     return {}
 
 # ТВОЙ НОВЫЙ ТОКЕН
-API_TOKEN = '8511782128:AAGC47hGA_qAEWTtWQKGuJsltqN141XzpO4'
+API_TOKEN = '8511782128:AAF2XpfD9WUUErU8AVmnGedkxNOUTxGMICM'
 
 logging.basicConfig(level=logging.INFO)
 

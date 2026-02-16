@@ -5,6 +5,17 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from flask import Flask
+import threading
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I am alive"
+
+def run():
+    app.run(host='0.0.0.0', port=10000)
 # Настройка сохранения
 DB_FILE = 'votes.json'
 
@@ -109,6 +120,11 @@ async def handle_vote(callback_query: types.CallbackQuery):
     await callback_query.answer(f"Принято: {user_full_name}")
 
 if __name__ == "__main__":
-    # Эта строка принудительно удаляет старые вебхуки и зависшие сессии
+    # Запускаем Flask в отдельном потоке
+    threading.Thread(target=run).start()
+    
+    # Сбрасываем старые зависшие сессии Telegram
     bot.delete_webhook(drop_pending_updates=True)
+    
+    # Запускаем бота
     executor.start_polling(dp, skip_updates=True)

@@ -55,7 +55,7 @@ def render_text(data):
     return text
 
 @dp.message_handler(commands=['poll'])
-@dp.channel_post_handler(lambda message: message.text == '/poll')
+@dp.channel_post_handler(lambda message: message.text and message.text.startswith('/poll'))
 async def start_poll(message: types.Message):
     """Команда /poll создает новый опрос"""
     await bot.send_message(

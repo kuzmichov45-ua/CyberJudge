@@ -108,18 +108,16 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # Это гарантирует, что каждый игрок — это отдельная запись
     votes[user_id] = {'name': user_full_name, 'answer': vote_type}
 
-    # 1. Сохраняем голос в файл, чтобы данные не терялись при перезагрузке
+    # 1. Сохраняем голос, чтобы данные не терялись при перезапуске
     save_votes(votes)
 
     try:
-        # 2. Удаляем старое сообщение, чтобы отправить новое вниз чата
-        try:
-            await callback_query.message.delete()
-        except Exception:
-            pass # Если сообщение уже удалено, просто идем дальше
+        # 2. Удаляем старое сообщение (чтобы оно исчезло)
+        await callback_query.message.delete()
 
         # 3. Отправляем НОВОЕ сообщение (оно упадет в самый низ чата)
-        await callback_query.bot.send_message(
+        # Используем глобальный объект bot, созданный в строке 40
+        await bot.send_message(
             chat_id=callback_query.message.chat.id,
             text=render_text(votes),
             reply_markup=get_keyboard(),
@@ -128,7 +126,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
     except Exception as e:
         logging.error(f"Ошибка перемещения сообщения: {e}")
 
-    # Всплывающее уведомление
+    # Всплывающее уведомление в Telegram
     await callback_query.answer(f"Принято: {user_full_name}")
 
 if __name__ == "__main__":

@@ -15,7 +15,12 @@ def home():
     return "I am alive"
 
 def run():
-    app.run(host='0.0.0.0', port=10000)
+    # Автоматически подбираем порт, который дает Render
+    port = int(os.environ.get("PORT", 10000))
+    try:
+        app.run(host='0.0.0.0', port=port)
+    except Exception as e:
+        logging.error(f"Ошибка Flask: {e}")
 # Настройка сохранения
 DB_FILE = 'votes.json'
 

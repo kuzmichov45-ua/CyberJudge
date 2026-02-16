@@ -142,11 +142,16 @@ async def cmd_reset(message: types.Message):
     member = await message.chat.get_member(message.from_user.id)
     if not member.is_chat_admin():
         return await message.reply("❌ Только админы могут сбрасывать список.")
-        
+
+    try:
+        await message.delete()
+    except Exception as e:
+        logging.error(f"Ошибка удаления: {e}")
+
     global votes
     votes = {}  # Очищаем список в оперативной памяти
     save_votes(votes)  # Записываем пустой список в файл votes.json
-    await message.answer("✅ Список игроков очищен! Теперь можно запускать новый /poll")
+    await message.answer("✅ Список игроков очищен! Теперь можно запускать новый сбор")
 
 # ВНИМАНИЕ: Тут 0 пробелов! Строка ниже должна касаться левого края.
 if __name__ == "__main__":

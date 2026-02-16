@@ -40,19 +40,17 @@ def render_text(data):
         ("sick", "Болею 😷🤧")
     ]
     
-    for status, label in categories:
-        # Собираем список имен для конкретного статуса
-        users = [name for name, s in data.items() if s == status]
-        
-        text += f"{label}:\n"
-        if users:
-            # Нумеруем список
-            text += "\n".join([f"{i+1}. {name}" for i, name in enumerate(users)])
-        else:
-            text += "пока пусто"
-        text += "\n\n"
-        
-    return text
+    sections = {'yes': [], 'no': [], 'sick': []}
+    for user_id, data in data.items():
+        name = data.get('name', 'Аноним')
+        status = data.get('answer')
+        if status in sections:
+            sections[status].append(name)
+
+    text = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n\n"
+    text += "Буду 👍:\n" + ("\n".join([f"{i+1}. {n}" for i, n in enumerate(sections['yes'])]) if sections['yes'] else "пока пусто") + "\n\n"
+    text += "Не буду 👎:\n" + ("\n".join([f"{i+1}. {n}" for i, n in enumerate(sections['no'])]) if sections['no'] else "пока пусто") + "\n\n"
+    text += "Болею 🤧🩹:\n" + ("\n".join([f"{i+1}. {n}" for i, n in enumerate(sections['sick'])]) if sections['sick'] else "пока пусто")
 
 @dp.message_handler(commands=['poll'])
 @dp.channel_post_handler(lambda message: message.text and message.text.startswith('/poll'))
@@ -71,12 +69,14 @@ async def start_poll(message: types.Message):
 
 @dp.callback_query_handler()
 async def handle_vote(callback_query: types.CallbackQuery):
-    """Обработка нажатий на кнопки"""
-    user_name = callback_query.from_user.full_name
+    user_id = callback_query.from_user.id
+    user_full_name = callback_query.from_user.full_name
     vote_type = callback_query.data
-    votes[user_name] = vote_type
-    
-    # Редактируем текущее сообщение, обновляя текст списка
+
+    # Сохраняем голос по ID пользователя (цифры), а не по имени
+    # Это гарантирует, что каждый игрок — это отдельная запись
+    votes[user_id] = {'name': user_full_name, 'answer': vote_type}
+
     try:
         await bot.edit_message_text(
             chat_id=callback_query.message.chat.id,
@@ -86,12 +86,11 @@ async def handle_vote(callback_query: types.CallbackQuery):
             parse_mode="Markdown"
         )
     except Exception as e:
-        # Если пользователь нажал ту же кнопку, текст не изменится и Telegram выдаст ошибку
-        # Мы её просто игнорируем
+        # Если пользователь нажал ту же кнопку, Telegram выдаст ошибку, мы её просто игнорируем
         logging.info(f"Текст не изменился: {e}")
     
-    # Всплывающее уведомление в Telegram: "Голос принят"
-    await callback_query.answer(f"Принято: {user_name}")
+    # Всплывающее уведомление вверху экрана
+    await callback_query.answer(f"Принято: {user_full_name}")
 
 if __name__ == "__main__":
     # Запуск бота

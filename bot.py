@@ -54,34 +54,35 @@ def get_keyboard():
     return keyboard
 
 def render_text(data):
-    """Формирует текст списка участников"""
     header = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n"
     header += "______\n\n"
     
-    # Если данных еще нет (никто не нажал кнопку), возвращаем заголовок с призывом
     if not data:
         return header + "Пока никто не записался. Будешь первым?"
-
-    text = header
     
-    # Категории опроса
-    categories = [
-        ("yes", "Буду 👍"),
-        ("no", "Не буду 👎"),
-        ("sick", "Болею 😷🤧")
-    ]
-    
+    # Правильное распределение игроков по спискам
     sections = {'yes': [], 'no': [], 'sick': []}
-    for user_id, data in data.items():
-        name = data.get('name', 'Аноним')
-        status = data.get('answer')
+    for user_id, user_info in data.items():
+        status = user_info.get('answer')
+        name = user_info.get('name', 'Аноним')
         if status in sections:
             sections[status].append(name)
 
-    text = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n\n"
-    text += "Буду 👍:\n" + ("\n".join([f"{i+1}. {n}" for i, n in enumerate(sections['yes'])]) if sections['yes'] else "пока пусто") + "\n\n"
-    text += "Не буду 👎:\n" + ("\n".join([f"{i+1}. {n}" for i, n in enumerate(sections['no'])]) if sections['no'] else "пока пусто") + "\n\n"
-    text += "Болею 🤧🩹:\n" + ("\n".join([f"{i+1}. {n}" for i, n in enumerate(sections['sick'])]) if sections['sick'] else "пока пусто")
+    # Собираем итоговый текст через одну переменную res
+    res = header
+    res += f"Буду 🔥: {len(sections['yes'])}\n"
+    for i, name in enumerate(sections['yes'], 1):
+        res += f"{i}. {name}\n"
+
+    res += f"\nНе буду 👎: {len(sections['no'])}\n"
+    for i, name in enumerate(sections['no'], 1):
+        res += f"{i}. {name}\n"
+
+    res += f"\nБолею 🤒: {len(sections['sick'])}\n"
+    for i, name in enumerate(sections['sick'], 1):
+        res += f"{i}. {name}\n"
+        
+    return res
 
 @dp.message_handler(commands=['poll'])
 @dp.channel_post_handler(lambda message: message.text and message.text.startswith('/poll'))
@@ -115,27 +116,22 @@ async def handle_vote(callback_query: types.CallbackQuery):
         # 1. Сохраняем ID чата
         chat_id = callback_query.message.chat.id
 
-        # 2. Формируем текст и проверяем его на пустоту
-        new_text = render_text(votes)
-        if not new_text or len(new_text.strip()) == 0:
-            new_text = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n\nПока никто не записался. Будешь первым?"
-
-        # 3. Удаляем старое сообщение
+        # 2. Удаляем старое сообщение
         try:
             await callback_query.message.delete()
         except Exception:
             pass
 
-        # 4. Отправляем НОВОЕ сообщение (без Markdown для стабильности)
+        # 3. Отправляем НОВОЕ сообщение с актуальным списком
         await bot.send_message(
             chat_id=chat_id,
-            text=new_text,
+            text=render_text(votes),
             reply_markup=get_keyboard()
         )
     except Exception as e:
         logging.error(f"Ошибка перемещения сообщения: {e}")
 
-    # 5. Всплывающее уведомление
+    # 4. Всплывающее уведомление в Telegram
     await callback_query.answer(f"Принято: {user_full_name}")
 
 # ВНИМАНИЕ: Тут 0 пробелов! Строка ниже должна касаться левого края.

@@ -111,8 +111,8 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # 1. Сохраняем голос, чтобы данные не терялись при перезапуске
     save_votes(votes)
 
-   try:
-        # 1. Сначала сохраняем ID чата, пока сообщение не удалено
+    try:
+        # 1. Сначала сохраняем ID чата
         chat_id = callback_query.message.chat.id
 
         # 2. Удаляем старое сообщение
@@ -130,10 +130,11 @@ async def handle_vote(callback_query: types.CallbackQuery):
         )
     except Exception as e:
         logging.error(f"Ошибка перемещения сообщения: {e}")
-    # Всплывающее уведомление в Telegram
-    await callback_query.answer(f"Принято: {user_full_name}")
 
-if __name__ == "__main__":
+    # 4. Всплывающее уведомление
+    await callback_query.answer(f"Принято: {user_full_name}")
+    
+    if __name__ == "__main__":
    # Запуск Flask в отдельном потоке
     threading.Thread(target=run, daemon=True).start()
 

@@ -116,13 +116,13 @@ async def handle_vote(callback_query: types.CallbackQuery):
     save_votes(votes)
 
     try:
-        # 1. Сначала пробуем удалить старое сообщение
+        # 1. Пытаемся удалить старое сообщение (оно уже не актуально)
         try:
             await callback_query.message.delete()
         except Exception as delete_error:
-            logging.error(f"Не удалось удалить сообщение: {delete_error}")
+            logging.error(f"Не удалось удалить старое сообщение: {delete_error}")
 
-        # 2. Отправляем новое сообщение в самый низ чата
+        # 2. Отправляем НОВОЕ сообщение в самый низ чата
         await bot.send_message(
             chat_id=callback_query.message.chat.id,
             text=render_text(votes),
@@ -130,7 +130,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
             parse_mode="Markdown"
         )
     except Exception as e:
-        logging.error(f"Ошибка при перемещении опроса вниз: {e}")
+        logging.error(f"Ошибка при перемещении опроса: {e}")
 
     # 4. Всплывающее уведомление в Telegram
     await callback_query.answer(f"Принято: {user_full_name}")

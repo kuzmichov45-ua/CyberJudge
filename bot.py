@@ -112,7 +112,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
     save_votes(votes)
 
 try:
-        # 1. Сначала сохраняем ID чата
+        # 1. Сохраняем ID чата
         chat_id = callback_query.message.chat.id
 
         # 2. Удаляем старое сообщение
@@ -121,7 +121,7 @@ try:
         except Exception:
             pass
 
-        # 3. Отправляем НОВОЕ сообщение вниз чата
+        # 3. Отправляем НОВОЕ сообщение (без Markdown для надежности)
         await bot.send_message(
             chat_id=chat_id,
             text=render_text(votes),
@@ -134,6 +134,7 @@ try:
     await callback_query.answer(f"Принято: {user_full_name}")
 
 if __name__ == "__main__":
+    # Запуск Flask и бота
     threading.Thread(target=run, daemon=True).start()
     bot.delete_webhook(drop_pending_updates=True)
-    executor.start_polling(dp, skip_updates=True) 
+    executor.start_polling(dp, skip_updates=True)

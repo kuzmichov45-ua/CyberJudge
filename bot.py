@@ -108,27 +108,33 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # Это гарантирует, что каждый игрок — это отдельная запись
     votes[user_id] = {'name': user_full_name, 'answer': vote_type}
 
+    # 1. Сохраняем голос в файл, чтобы данные не терялись при перезагрузке
+    save_votes(votes)
+
     try:
-        await bot.edit_message_text(
+        # 2. Удаляем старое сообщение, чтобы отправить новое вниз чата
+        try:
+            await callback_query.message.delete()
+        except Exception:
+            pass # Если сообщение уже удалено, просто идем дальше
+
+        # 3. Отправляем НОВОЕ сообщение (оно упадет в самый низ чата)
+        await callback_query.bot.send_message(
             chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
             text=render_text(votes),
             reply_markup=get_keyboard(),
             parse_mode="Markdown"
         )
     except Exception as e:
-        # Если пользователь нажал ту же кнопку, Telegram выдаст ошибку, мы её просто игнорируем
-        logging.info(f"Текст не изменился: {e}")
-    
-    # Всплывающее уведомление вверху экрана
+        logging.error(f"Ошибка перемещения сообщения: {e}")
+
+    # Всплывающее уведомление
     await callback_query.answer(f"Принято: {user_full_name}")
 
 if __name__ == "__main__":
-    # Запускаем Flask в отдельном потоке
-    threading.Thread(target=run).start()
-    
-    # Сбрасываем старые зависшие сессии Telegram
+   # Запуск Flask в отдельном потоке
+    threading.Thread(target=run, daemon=True).start()
+
+    # Очистка старых сессий и запуск бота
     bot.delete_webhook(drop_pending_updates=True)
-    
-    # Запускаем бота
     executor.start_polling(dp, skip_updates=True)

@@ -85,7 +85,6 @@ def render_text(data):
     return res
 
 @dp.message_handler(commands=['poll'])
-@dp.channel_post_handler(lambda message: message.text and message.text.startswith('/poll'))
 async def start_poll(message: types.Message):
     """Команда /poll создает новый опрос"""
     member = await message.chat.get_member(message.from_user.id)

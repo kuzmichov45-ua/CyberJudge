@@ -115,10 +115,10 @@ async def handle_vote(callback_query: types.CallbackQuery):
         # 1. Сохраняем ID чата
         chat_id = callback_query.message.chat.id
 
-        # 2. Формируем текст
+        # 2. Формируем текст и проверяем его на пустоту
         new_text = render_text(votes)
-        if not new_text or new_text.strip() == "":
-            new_text = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n\nПока никто не записался."
+        if not new_text or len(new_text.strip()) == 0:
+            new_text = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n\nПока никто не записался. Будешь первым?"
 
         # 3. Удаляем старое сообщение
         try:
@@ -126,7 +126,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
         except Exception:
             pass
 
-        # 4. Отправляем НОВОЕ сообщение
+        # 4. Отправляем НОВОЕ сообщение (без Markdown для стабильности)
         await bot.send_message(
             chat_id=chat_id,
             text=new_text,
@@ -134,6 +134,9 @@ async def handle_vote(callback_query: types.CallbackQuery):
         )
     except Exception as e:
         logging.error(f"Ошибка перемещения сообщения: {e}")
+
+    # 5. Всплывающее уведомление
+    await callback_query.answer(f"Принято: {user_full_name}")
 
 # ВНИМАНИЕ: Тут 0 пробелов! Строка ниже должна касаться левого края.
 if __name__ == "__main__":

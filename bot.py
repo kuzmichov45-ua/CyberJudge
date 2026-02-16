@@ -144,5 +144,6 @@ async def cmd_reset(message: types.Message):
 # ВНИМАНИЕ: Тут 0 пробелов! Строка ниже должна касаться левого края.
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
-    bot.delete_webhook(drop_pending_updates=True)
+    # Эта строка ниже «пробивает» засор в сообщениях:
+    bot.delete_webhook(drop_pending_updates=True) 
     executor.start_polling(dp, skip_updates=True)

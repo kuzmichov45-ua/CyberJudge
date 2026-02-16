@@ -1,20 +1,36 @@
 import logging
+import json
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# ТОКЕН, который ты получил у @BotFather
-API_TOKEN = '8511782128:AAEYQsojhFIw_irz-lGtFrrYLt4XmE7Dugw'
+# Настройка сохранения
+DB_FILE = 'votes.json'
 
-# Настройка логирования
+def save_votes(data):
+    with open(DB_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+def load_votes():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+# ТВОЙ НОВЫЙ ТОКЕН
+API_TOKEN = '8511782128:AAHqUtNV397s4KVJuBbQA5JXnDYgTzoC250'
+
 logging.basicConfig(level=logging.INFO)
 
-# Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Временное хранилище голосов (сбросится при перезагрузке сервера)
-votes = {}
+# Загружаем голоса
+votes = load_votes()
 
 def get_keyboard():
     """Создает кнопки под сообщением"""

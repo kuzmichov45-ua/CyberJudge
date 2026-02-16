@@ -88,6 +88,10 @@ def render_text(data):
 @dp.channel_post_handler(lambda message: message.text and message.text.startswith('/poll'))
 async def start_poll(message: types.Message):
     """Команда /poll создает новый опрос"""
+    member = await message.chat.get_member(message.from_user.id)
+    if not member.is_chat_admin():
+        return await message.reply("❌ Только админы могут запускать опрос.")
+        
     await bot.send_message(
         chat_id=message.chat.id,
         text=render_text({}),
@@ -136,6 +140,10 @@ async def handle_vote(callback_query: types.CallbackQuery):
 
 @dp.message_handler(commands=['reset'])
 async def cmd_reset(message: types.Message):
+    member = await message.chat.get_member(message.from_user.id)
+    if not member.is_chat_admin():
+        return await message.reply("❌ Только админы могут сбрасывать список.")
+        
     global votes
     votes = {}  # Очищаем список в оперативной памяти
     save_votes(votes)  # Записываем пустой список в файл votes.json

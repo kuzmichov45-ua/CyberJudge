@@ -134,6 +134,13 @@ async def handle_vote(callback_query: types.CallbackQuery):
     # 4. Всплывающее уведомление в Telegram
     await callback_query.answer(f"Принято: {user_full_name}")
 
+@dp.message_handler(commands=['reset'])
+async def cmd_reset(message: types.Message):
+    global votes
+    votes = {}  # Очищаем список в оперативной памяти
+    save_votes(votes)  # Записываем пустой список в файл votes.json
+    await message.answer("✅ Список игроков очищен! Теперь можно запускать новый /poll")
+
 # ВНИМАНИЕ: Тут 0 пробелов! Строка ниже должна касаться левого края.
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()

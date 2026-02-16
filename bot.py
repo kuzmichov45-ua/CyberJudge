@@ -137,4 +137,4 @@ async def handle_vote(callback_query: types.CallbackQuery):
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
     bot.delete_webhook(drop_pending_updates=True)
-    executor.start_polling(dp, skip_updates=True
+    executor.start_polling(dp, skip_updates=True)

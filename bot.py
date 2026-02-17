@@ -3,7 +3,7 @@ import logging
 import time
 import pandas as pd
 import io
-import asyncio
+import asyncio  # ТЕПЕРЬ ОН ТУТ ЕСТЬ И ОШИБКИ НЕ БУДЕТ
 from aiogram import types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -14,8 +14,7 @@ from database import load_votes, save_votes
 votes = load_votes()
 current_limit = 12
 last_poll_msg_id = None
-# ЭТОТ ЗАМОК — решение проблемы задвоения
-poll_lock = asyncio.Lock()
+poll_lock = asyncio.Lock() # Защита от задвоения
 
 def get_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=2)
@@ -56,20 +55,13 @@ def render_text(data, limit):
 
 async def send_new_poll(chat_id):
     global last_poll_msg_id
-    # Заходим в замок. Если кто-то уже меняет сообщение, бот подождет
-    async with poll_lock:
+    async with poll_lock: # Работает только если вверху есть import asyncio
         if last_poll_msg_id:
-            try:
-                await bot.delete_message(chat_id, last_poll_msg_id)
-            except:
-                pass
+            try: await bot.delete_message(chat_id, last_poll_msg_id)
+            except: pass
             last_poll_msg_id = None
 
-        new_msg = await bot.send_message(
-            chat_id, 
-            render_text(votes, current_limit), 
-            reply_markup=get_keyboard()
-        )
+        new_msg = await bot.send_message(chat_id, render_text(votes, current_limit), reply_markup=get_keyboard())
         last_poll_msg_id = new_msg.message_id
 
 @dp.message_handler(commands=['poll'])
@@ -106,6 +98,7 @@ async def up_player(message: types.Message):
             await send_new_poll(message.chat.id)
 
 @dp.message_handler(commands=['excel'])
+
 async def get_excel(message: types.Message):
     if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
     try: await message.delete()
@@ -144,7 +137,6 @@ async def reset_all(message: types.Message):
             last_poll_msg_id = None
             
     temp = await message.answer("♻️ Список очищен")
-    # ЗАМЕНИЛИ time.sleep на asyncio.sleep
     await asyncio.sleep(3)
     try: await temp.delete()
     except: pass

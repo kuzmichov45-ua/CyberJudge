@@ -64,13 +64,16 @@ async def send_new_poll(chat_id):
         new_msg = await bot.send_message(chat_id, render_text(votes, current_limit), reply_markup=get_keyboard())
         last_poll_msg_id = new_msg.message_id
 
+# ФУНКЦИЯ ПРОВЕРКИ АДМИНА (из твоего запроса)
 async def is_admin(message: types.Message):
     member = await message.chat.get_member(message.from_user.id)
     if member.is_chat_admin():
         return True
     else:
+        # Удаляем команду не-админа
         try: await message.delete()
         except: pass
+        # Пишем уведомление и удаляем его через 5 секунд
         warning = await message.answer(f"❌ {message.from_user.first_name}, управлять ботом могут только администраторы группы! ⚽️")
         await asyncio.sleep(5)
         try: await warning.delete()
@@ -109,7 +112,7 @@ async def up_player(message: types.Message):
             votes[r_id]['time'], votes[m_id]['time'] = votes[m_id]['time'], votes[r_id]['time']
             save_votes(votes)
             await send_new_poll(message.chat.id)
-            
+
 @dp.message_handler(commands=['excel'])
 async def get_excel(message: types.Message):
     if not await is_admin(message): return

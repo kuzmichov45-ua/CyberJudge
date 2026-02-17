@@ -1,4 +1,3 @@
-Dmytro, [17.02.2026 12:48]
 import threading
 import logging
 import time

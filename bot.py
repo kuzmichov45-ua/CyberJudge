@@ -132,6 +132,34 @@ async def handle_vote(callback_query: types.CallbackQuery):
     await send_new_poll(callback_query.message.chat.id)
     await callback_query.answer()
 
+@dp.message_handler(commands=['reset'])
+async def reset_all(message: types.Message):
+    global votes, last_poll_msg_id
+    # Проверка на админа
+    member = await message.chat.get_member(message.from_user.id)
+    if not member.is_chat_admin():
+        return
+
+    # 1. Удаляем саму команду /reset из чата (чистим мусор)
+    try: await message.delete()
+    except: pass
+
+    # 2. Очищаем данные
+    votes = {}
+    save_votes(votes)
+    
+    # 3. Пытаемся удалить старое сообщение опроса, если оно есть
+    if last_poll_msg_id:
+        try: await bot.delete_message(message.chat.id, last_poll_msg_id)
+        except: pass
+        last_poll_msg_id = None
+
+    # 4. Отправляем подтверждение, которое само удалится через 5 секунд
+    confirm_msg = await message.answer("✅ Список игроков очищен! Теперь можно запускать новый сбор.")
+    time.sleep(5)
+    try: await confirm_msg.delete()
+    except: pass
+        
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
     executor.start_polling(dp, skip_updates=True)

@@ -1,9 +1,10 @@
+Dmytro, [17.02.2026 12:48]
 import threading
 import logging
 import time
 import pandas as pd
 import io
-import asyncio  # Добавили для работы с замком
+import asyncio # ОБЯЗАТЕЛЬНО
 from aiogram import types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -14,7 +15,8 @@ from database import load_votes, save_votes
 votes = load_votes()
 current_limit = 12
 last_poll_msg_id = None
-poll_lock = asyncio.Lock()  # ЭТОТ ЗАМОК УБИРАЕТ ЗАДВОЕНИЕ
+# Этот замок гарантирует, что сообщения обрабатываются строго по одному
+poll_lock = asyncio.Lock() 
 
 def get_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=2)
@@ -55,14 +57,20 @@ def render_text(data, limit):
 
 async def send_new_poll(chat_id):
     global last_poll_msg_id
-    # Замок гарантирует: пока одно сообщение не отправится, второе не начнется
+    # Используем замок: пока один процесс удаляет/шлет, остальные ждут
     async with poll_lock:
         if last_poll_msg_id:
-            try: await bot.delete_message(chat_id, last_poll_msg_id)
-            except: pass
-            last_poll_msg_id = None # Очищаем ID сразу
+            try:
+                await bot.delete_message(chat_id, last_poll_msg_id)
+            except:
+                pass
+            last_poll_msg_id = None # Сбрасываем ID сразу
 
-        new_msg = await bot.send_message(chat_id, render_text(votes, current_limit), reply_markup=get_keyboard())
+        new_msg = await bot.send_message(
+            chat_id, 
+            render_text(votes, current_limit), 
+            reply_markup=get_keyboard()
+        )
         last_poll_msg_id = new_msg.message_id
 
 @dp.message_handler(commands=['poll'])
@@ -97,10 +105,8 @@ async def up_player(message: types.Message):
             votes[r_id]['time'], votes[m_id]['time'] = votes[m_id]['time'], votes[r_id]['time']
             save_votes(votes)
             await send_new_poll(message.chat.id)
-    else:
-        m = await message.answer("⚠️ Использование: /up [резерв] [основа]")
-        await asyncio.sleep(5); await m.delete()
 
+Dmytro, [17.02.2026 12:48]
 @dp.message_handler(commands=['excel'])
 async def get_excel(message: types.Message):
     if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
@@ -116,7 +122,7 @@ async def get_excel(message: types.Message):
         elif st == 'no': st = 'Не буду'
         elif st == 'sick': st = 'Болею'
         else: st = 'Под вопросом'
-        data.append({'Имя': info['name'], 'Статус': st, 'Время': time.ctime(info['time'])})
+        data.append({'Имя': info['name'], 'Статус': st})
     
     df = pd.DataFrame(data)
     output = io.BytesIO()
@@ -131,14 +137,18 @@ async def reset_all(message: types.Message):
     if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
     try: await message.delete()
     except: pass
+    
     votes = {}; save_votes(votes)
     async with poll_lock:
         if last_poll_msg_id:
             try: await bot.delete_message(message.chat.id, last_poll_msg_id)
             except: pass
             last_poll_msg_id = None
-    m = await message.answer("♻️ Список очищен")
-    await asyncio.sleep(3); await m.delete()
+            
+    temp = await message.answer("♻️ Список очищен")
+    await asyncio.sleep(3) # Используем асинхронный сон
+    try: await temp.delete()
+    except: pass
 
 @dp.callback_query_handler()
 async def handle_vote(callback_query: types.CallbackQuery):
@@ -155,4 +165,3 @@ async def handle_vote(callback_query: types.CallbackQuery):
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
     executor.start_polling(dp, skip_updates=True)
-    

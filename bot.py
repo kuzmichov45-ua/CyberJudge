@@ -8,15 +8,14 @@ from aiogram import types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Импорт твоих настроек
 from config import dp, bot, app, run
 from database import load_votes, save_votes
 
-# Глобальные переменные
 votes = load_votes()
 current_limit = 12
 last_poll_msg_id = None
-poll_lock = asyncio.Lock() # Защита от задвоения
+# ЭТОТ ЗАМОК — решение проблемы задвоения
+poll_lock = asyncio.Lock()
 
 def get_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=2)
@@ -57,10 +56,13 @@ def render_text(data, limit):
 
 async def send_new_poll(chat_id):
     global last_poll_msg_id
+    # Заходим в замок. Если кто-то уже меняет сообщение, бот подождет
     async with poll_lock:
         if last_poll_msg_id:
-            try: await bot.delete_message(chat_id, last_poll_msg_id)
-            except: pass
+            try:
+                await bot.delete_message(chat_id, last_poll_msg_id)
+            except:
+                pass
             last_poll_msg_id = None
 
         new_msg = await bot.send_message(
@@ -142,6 +144,7 @@ async def reset_all(message: types.Message):
             last_poll_msg_id = None
             
     temp = await message.answer("♻️ Список очищен")
+    # ЗАМЕНИЛИ time.sleep на asyncio.sleep
     await asyncio.sleep(3)
     try: await temp.delete()
     except: pass

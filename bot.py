@@ -3,7 +3,7 @@ import logging
 import time
 import pandas as pd
 import io
-import asyncio  # ТЕПЕРЬ ОН ТУТ ЕСТЬ И ОШИБКИ НЕ БУДЕТ
+import asyncio
 from aiogram import types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -14,7 +14,7 @@ from database import load_votes, save_votes
 votes = load_votes()
 current_limit = 12
 last_poll_msg_id = None
-poll_lock = asyncio.Lock() # Защита от задвоения
+poll_lock = asyncio.Lock()
 
 def get_keyboard():
     keyboard = InlineKeyboardMarkup(row_width=2)
@@ -55,7 +55,7 @@ def render_text(data, limit):
 
 async def send_new_poll(chat_id):
     global last_poll_msg_id
-    async with poll_lock: # Работает только если вверху есть import asyncio
+    async with poll_lock:
         if last_poll_msg_id:
             try: await bot.delete_message(chat_id, last_poll_msg_id)
             except: pass
@@ -64,10 +64,29 @@ async def send_new_poll(chat_id):
         new_msg = await bot.send_message(chat_id, render_text(votes, current_limit), reply_markup=get_keyboard())
         last_poll_msg_id = new_msg.message_id
 
+# УЛУЧШЕННАЯ ПРОВЕРКА АДМИНА
+async def is_admin(message: types.Message):
+    member = await message.chat.get_member(message.from_user.id)
+    if member.is_chat_admin():
+        return True
+    else:
+        # 1. Сразу удаляем команду не-админа
+        try: await message.delete()
+        except: pass
+        
+        # 2. Пишем предупреждение
+        warning = await message.answer(f"❌ {message.from_user.first_name}, управлять ботом могут только администраторы группы! ⚽️")
+        
+        # 3. Удаляем предупреждение через 5 секунд
+        await asyncio.sleep(5)
+        try: await warning.delete()
+        except: pass
+        return False
+
 @dp.message_handler(commands=['poll'])
 async def start_poll(message: types.Message):
+    if not await is_admin(message): return
     global current_limit, votes
-    if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
     try: await message.delete() 
     except: pass
     
@@ -78,8 +97,8 @@ async def start_poll(message: types.Message):
 
 @dp.message_handler(commands=['up'])
 async def up_player(message: types.Message):
+    if not await is_admin(message): return
     global votes
-    if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
     try: await message.delete()
     except: pass
     
@@ -88,7 +107,8 @@ async def up_player(message: types.Message):
     
     if len(args) == 2 and all(a.isdigit() for a in args):
         res_idx, main_idx = int(args[0]) - 1, int(args[1]) - 1
-        reserve = all_yes[current_limit:]
+
+reserve = all_yes[current_limit:]
         main = all_yes[:current_limit]
         
         if 0 <= res_idx < len(reserve) and 0 <= main_idx < len(main):
@@ -98,9 +118,8 @@ async def up_player(message: types.Message):
             await send_new_poll(message.chat.id)
 
 @dp.message_handler(commands=['excel'])
-
 async def get_excel(message: types.Message):
-    if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
+    if not await is_admin(message): return
     try: await message.delete()
     except: pass
     
@@ -124,8 +143,8 @@ async def get_excel(message: types.Message):
 
 @dp.message_handler(commands=['reset'])
 async def reset_all(message: types.Message):
+    if not await is_admin(message): return
     global votes, last_poll_msg_id
-    if not (await message.chat.get_member(message.from_user.id)).is_chat_admin(): return
     try: await message.delete()
     except: pass
     

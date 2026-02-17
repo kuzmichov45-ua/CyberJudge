@@ -4,12 +4,27 @@ import time
 import pandas as pd
 import io
 import asyncio
+import requests  # Добавлено для самопинга
 from aiogram import types
 from aiogram.utils import executor
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import dp, bot, app, run
 from database import load_votes, save_votes
+
+# --- БЛОК САМОПИНГА (ЗАДАЧА 1) ---
+def self_ping():
+    while True:
+        try:
+            # Твоя ссылка на Render
+            requests.get("https://cyberjudge-test.onrender.com/")
+        except:
+            pass
+        time.sleep(300)  # Пауза 5 минут (300 секунд)
+
+# Запуск "будильника" в фоновом режиме
+threading.Thread(target=self_ping, daemon=True).start()
+# ---------------------------------
 
 votes = load_votes()
 current_limit = 12
@@ -64,16 +79,13 @@ async def send_new_poll(chat_id):
         new_msg = await bot.send_message(chat_id, render_text(votes, current_limit), reply_markup=get_keyboard())
         last_poll_msg_id = new_msg.message_id
 
-# ФУНКЦИЯ ПРОВЕРКИ АДМИНА (из твоего запроса)
 async def is_admin(message: types.Message):
     member = await message.chat.get_member(message.from_user.id)
     if member.is_chat_admin():
         return True
     else:
-        # Удаляем команду не-админа
         try: await message.delete()
         except: pass
-        # Пишем уведомление и удаляем его через 5 секунд
         warning = await message.answer(f"❌ {message.from_user.first_name}, управлять ботом могут только администраторы группы! ⚽️")
         await asyncio.sleep(5)
         try: await warning.delete()
@@ -167,7 +179,7 @@ async def handle_vote(callback_query: types.CallbackQuery):
     save_votes(votes)
     await callback_query.answer()
     await send_new_poll(callback_query.message.chat.id)
-
+    
 if __name__ == "__main__":
     threading.Thread(target=run, daemon=True).start()
     executor.start_polling(dp, skip_updates=True)

@@ -60,6 +60,8 @@ async def cmd_up(m: types.Message):
 @dp.message_handler(commands=['excel'])
 async def cmd_excel(m: types.Message):
     if not await is_admin(m): return
+    try: await m.delete()
+    except: pass
     all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
     data = []
     for uid, info in votes.items():

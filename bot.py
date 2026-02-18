@@ -32,7 +32,18 @@ poll_lock = asyncio.Lock()
 # Проверка админа БЕЗ автоматического удаления (удаляем сами в командах)
 async def is_admin(message: types.Message):
     member = await message.chat.get_member(message.from_user.id)
-    return member.is_chat_admin() or member.status == 'creator'
+    if member.is_chat_admin() or member.status == 'creator':
+        return True
+    
+    # Если пишет не админ:
+    try:
+        await message.delete() # Удаляем его сообщение с командой
+        tmp = await message.answer("❌ Эта команда только для администраторов!")
+        await asyncio.sleep(5) # Ждем 5 секунд
+        await tmp.delete()     # Удаляем предупреждение бота
+    except:
+        pass
+    return False
 
 async def send_poll(chat_id):
     global last_poll_msg_id
@@ -137,6 +148,9 @@ async def cb_reset(cb: types.CallbackQuery):
             except: pass
             last_poll_msg_id = None
         await cb.message.edit_text("♻️ Список очищен")
+        await asyncio.sleep(3)
+        try: await cb.message.delete()
+        except: pass
     else: await cb.message.delete()
 
 @dp.callback_query_handler()

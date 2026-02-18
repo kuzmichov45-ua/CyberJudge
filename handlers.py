@@ -5,7 +5,7 @@ import io
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-# Состояния ожидания
+# Состояния ожидания (для импорта в bot.py)
 waiting_for = {}
 
 async def set_main_menu(bot):
@@ -28,7 +28,7 @@ def get_keyboard():
     return kb
 
 def render_text(data, limit):
-    # Полоски строго под первой строкой заголовка
+    # Полоски переехали строго под первую строку
     header = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n"
     header += "—————————————————\n"
     header += f"ОСНОВНОЙ СОСТАВ: {limit} мест\n\n"
@@ -60,7 +60,7 @@ def render_text(data, limit):
         for i, p in enumerate(res_team, 1):
             res += f"{i}. {p['name']}\n"
 
-    # Блоки ПОД ВОПРОСОМ, НЕ БУДУ, БОЛЕЮ (исправлено: под надписью + нумерация)
+    # Блоки ПОД ВОПРОСОМ, НЕ БУДУ, БОЛЕЮ (с нумерацией и переносом)
     footer = ""
     if sections['maybe']:
         footer += f"\n⏳ ПОД ВОПРОСОМ:\n"
@@ -78,4 +78,3 @@ def render_text(data, limit):
             footer += f"{i}. {name}\n"
             
     return res + footer
-

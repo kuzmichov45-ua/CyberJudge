@@ -5,7 +5,7 @@ import io
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-# Состояния ожидания (для импорта в bot.py)
+# Состояния ожидания
 waiting_for = {}
 
 async def set_main_menu(bot):
@@ -28,7 +28,7 @@ def get_keyboard():
     return kb
 
 def render_text(data, limit):
-    # Полоски переехали строго под первую строку
+    # Полоски строго под первой строкой
     header = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n"
     header += "—————————————————\n"
     header += f"ОСНОВНОЙ СОСТАВ: {limit} мест\n\n"
@@ -36,10 +36,10 @@ def render_text(data, limit):
     if not data:
         return header + "Пока никто не записался."
 
-    # Сортировка по времени для Основы и Резерва
+    # Сортировка по времени
     all_yes = sorted([{'id': k, **v} for k, v in data.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
     
-    # Списки для остальных категорий
+    # Списки для остальных
     sections = {'maybe': [], 'no': [], 'sick': []}
     for uid, info in data.items():
         ans = info.get('answer')
@@ -49,18 +49,18 @@ def render_text(data, limit):
     main = all_yes[:limit]
     res_team = all_yes[limit:]
 
-    # Блок БУДУ
+    # Блок Буду
     res = header + f"Буду 🔥 ({len(main)}/{limit}):\n"
     for i, p in enumerate(main, 1):
         res += f"{i}. {p['name']}\n"
 
-    # Блок РЕЗЕРВ
+    # Блок Резерв
     if res_team:
         res += f"\n🟠 РЕЗЕРВ ({len(res_team)}):\n"
         for i, p in enumerate(res_team, 1):
             res += f"{i}. {p['name']}\n"
 
-    # Блоки ПОД ВОПРОСОМ, НЕ БУДУ, БОЛЕЮ (с нумерацией и переносом)
+    # Блоки Под вопросом / Не буду / Болею (с нумерацией и переносом строки)
     footer = ""
     if sections['maybe']:
         footer += f"\n⏳ ПОД ВОПРОСОМ:\n"

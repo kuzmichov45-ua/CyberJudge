@@ -1,14 +1,16 @@
 import threading
 import time
+import pandas as pd
+import io
 import asyncio
 import requests
 from aiogram import types
 from aiogram.utils import executor
+
 from config import dp, bot, run
 from database import load_votes, save_votes
-import handlers as h  # Импортируем наш новый файл
+import handlers as h
 
-# Самопинг для Render
 def self_ping():
     while True:
         try: requests.get("https://cyberjudge-test.onrender.com/")
@@ -24,10 +26,7 @@ poll_lock = asyncio.Lock()
 
 async def is_admin(message: types.Message):
     member = await message.chat.get_member(message.from_user.id)
-    if member.is_chat_admin(): return True
-    try: await message.delete()
-    except: pass
-    return False
+    return member.is_chat_admin() or member.status == 'creator'
 
 async def send_poll(chat_id):
     global last_poll_msg_id
@@ -35,7 +34,9 @@ async def send_poll(chat_id):
         if last_poll_msg_id:
             try: await bot.delete_message(chat_id, last_poll_msg_id)
             except: pass
-        msg = await bot.send_message(chat_id, h.render_text(votes, current_limit), reply_markup=h.get_keyboard())
+        # Вызываем без await
+        text = h.render_text(votes, current_limit)
+        msg = await bot.send_message(chat_id, text, reply_markup=h.get_keyboard())
         last_poll_msg_id = msg.message_id
 
 @dp.message_handler(commands=['poll'])
@@ -44,7 +45,7 @@ async def cmd_poll(m: types.Message):
     try: await m.delete()
     except: pass
     h.waiting_for[m.from_user.id] = 'limit'
-    q = await m.answer("🔢 **Введите лимит игроков (1-50):**")
+    q = await m.answer("🔢 **Введите лимит игроков:**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['up'])
@@ -53,42 +54,68 @@ async def cmd_up(m: types.Message):
     try: await m.delete()
     except: pass
     h.waiting_for[m.from_user.id] = 'up_numbers'
-    q = await m.answer("🔄 **Введите через пробел: [№ резерв] [№ основа] (напр. 1 12)**")
+    q = await m.answer("🔄 **Введите через пробел: [№ резерва] [№ основы]**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
+
+@dp.message_handler(commands=['excel'])
+async def cmd_excel(m: types.Message):
+    if not await is_admin(m): return
+    all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
+    data = []
+    for uid, info in votes.items():
+        st = info.get('answer')
+        if st == 'yes':
+            st = 'Основа' if any(p['id'] == uid for p in all_yes[:current_limit]) else 'Резерв'
+        data.append({'Имя': info.get('name'), 'Статус': st})
+    
+    df = pd.DataFrame(data)
+    out = io.BytesIO()
+    with pd.ExcelWriter(out, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    out.seek(0)
+    await m.answer_document(types.InputFile(out, filename="football_list.xlsx"))
 
 @dp.message_handler(commands=['reset'])
 async def cmd_reset(m: types.Message):
     if not await is_admin(m): return
     try: await m.delete()
     except: pass
-    kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("✅ Да, очистить", callback_data="confirm_reset"),
-                                          types.InlineKeyboardButton("❌ Отмена", callback_data="cancel"))
+    kb = types.InlineKeyboardMarkup().add(
+        types.InlineKeyboardButton("✅ Да, очистить", callback_data="confirm_reset"),
+        types.InlineKeyboardButton("❌ Отмена", callback_data="cancel")
+    )
     await m.answer("♻️ **Сбросить список?**", reply_markup=kb)
 
 @dp.message_handler(lambda m: m.from_user.id in h.waiting_for)
 async def handle_input(m: types.Message):
     uid = m.from_user.id
     state = h.waiting_for.get(uid)
-    global current_limit, votes
-    
     if state == 'limit' and m.text.isdigit():
+        global current_limit, votes
         current_limit = int(m.text)
         votes = {}; save_votes(votes)
+        await clean_admin_msg(m)
     elif state == 'up_numbers':
         args = m.text.split()
         if len(args) == 2 and all(a.isdigit() for a in args):
-            all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v['answer'] == 'yes'], key=lambda x: x['time'])
-            r_idx, m_idx = int(args[0]) - 1, int(args[1]) - 1
-            if 0 <= r_idx < len(all_yes[current_limit:]) and 0 <= m_idx < current_limit:
-                rid, mid = all_yes[current_limit:][r_idx]['id'], all_yes[:current_limit][m_idx]['id']
+            all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
+            try:
+                r_idx, m_idx = int(args[0])-1, int(args[1])-1
+                rid = all_yes[current_limit:][r_idx]['id']
+                mid = all_yes[:current_limit][m_idx]['id']
                 votes[rid]['time'], votes[mid]['time'] = votes[mid]['time'], votes[rid]['time']
                 save_votes(votes)
-    
+                await clean_admin_msg(m)
+            except: pass
+
+async def clean_admin_msg(m):
+    uid = m.from_user.id
     try:
         await m.delete()
         await bot.delete_message(m.chat.id, h.waiting_for[f"msg_{uid}"])
     except: pass
-    h.waiting_for.pop(uid, None); h.waiting_for.pop(f"msg_{uid}", None)
+    h.waiting_for.pop(uid, None)
+    h.waiting_for.pop(f"msg_{uid}", None)
     await send_poll(m.chat.id)
 
 @dp.callback_query_handler(lambda c: c.data in ["confirm_reset", "cancel"])
@@ -102,9 +129,6 @@ async def cb_reset(cb: types.CallbackQuery):
             last_poll_msg_id = None
         await cb.message.edit_text("♻️ Список очищен")
     else: await cb.message.delete()
-    await asyncio.sleep(2)
-    try: await cb.message.delete()
-    except: pass
 
 @dp.callback_query_handler()
 async def handle_vote(cb: types.CallbackQuery):
@@ -112,6 +136,4 @@ async def handle_vote(cb: types.CallbackQuery):
     save_votes(votes); await cb.answer(); await send_poll(cb.message.chat.id)
 
 if __name__ == "__main__":
-    threading.Thread(target=run, daemon=True).start()
     executor.start_polling(dp, skip_updates=True, on_startup=lambda d: h.set_main_menu(bot))
-    

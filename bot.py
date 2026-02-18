@@ -4,6 +4,7 @@ import pandas as pd
 import io
 import asyncio
 import requests
+from flask import Flask # Для статуса Live
 from aiogram import types
 from aiogram.utils import executor
 
@@ -11,19 +12,24 @@ from config import dp, bot, run
 from database import load_votes, save_votes
 import handlers as h
 
-def self_ping():
-    while True:
-        try: requests.get("https://cyberjudge-test.onrender.com/")
-        except: pass
-        time.sleep(300)
+# --- БЛОК ДЛЯ RENDER (чтобы горел статус LIVE) ---
+app = Flask('')
+@app.route('/')
+def home(): return "Бот работает!"
 
-threading.Thread(target=self_ping, daemon=True).start()
+def run_web():
+    # Render дает порт в переменных окружения, обычно 10000
+    app.run(host='0.0.0.0', port=10000)
+
+threading.Thread(target=run_web, daemon=True).start()
+# ------------------------------------------------
 
 votes = load_votes()
 current_limit = 12
 last_poll_msg_id = None
 poll_lock = asyncio.Lock()
 
+# Проверка админа БЕЗ автоматического удаления (удаляем сами в командах)
 async def is_admin(message: types.Message):
     member = await message.chat.get_member(message.from_user.id)
     return member.is_chat_admin() or member.status == 'creator'
@@ -34,7 +40,6 @@ async def send_poll(chat_id):
         if last_poll_msg_id:
             try: await bot.delete_message(chat_id, last_poll_msg_id)
             except: pass
-        # Вызываем без await
         text = h.render_text(votes, current_limit)
         msg = await bot.send_message(chat_id, text, reply_markup=h.get_keyboard())
         last_poll_msg_id = msg.message_id
@@ -60,12 +65,8 @@ async def cmd_up(m: types.Message):
 @dp.message_handler(commands=['excel'])
 async def cmd_excel(m: types.Message):
     if not await is_admin(m): return
-    
-    # Это удалит твоё сообщение "/excel" из чата
-    try:
-        await m.delete()
-    except:
-        pass
+    try: await m.delete() # ТЕПЕРЬ КОМАНДА УДАЛЯЕТСЯ
+    except: pass
     
     all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
     data = []
@@ -81,8 +82,6 @@ async def cmd_excel(m: types.Message):
     with pd.ExcelWriter(out, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
     out.seek(0)
-    
-    # Отправляем файл
     await m.answer_document(types.InputFile(out, filename="football_list.xlsx"))
 
 @dp.message_handler(commands=['reset'])

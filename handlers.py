@@ -4,9 +4,8 @@ import pandas as pd
 import io
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
-from database import save_votes
 
-# Состояния ожидания
+# Состояния ожидания (для импорта в bot.py)
 waiting_for = {}
 
 async def set_main_menu(bot):
@@ -20,26 +19,62 @@ async def set_main_menu(bot):
 
 def get_keyboard():
     kb = InlineKeyboardMarkup(row_width=2)
-    kb.add(InlineKeyboardButton("Буду 🔥", callback_data="yes"),
-           InlineKeyboardButton("Не буду 👎", callback_data="no"),
-           InlineKeyboardButton("Болею 🤧", callback_data="sick"),
-           InlineKeyboardButton("Под вопросом ⏳", callback_data="maybe"))
+    kb.add(
+        InlineKeyboardButton("Буду 🔥", callback_data="yes"),
+        InlineKeyboardButton("Не буду 👎", callback_data="no"),
+        InlineKeyboardButton("Болею 🤧", callback_data="sick"),
+        InlineKeyboardButton("Под вопросом ⏳", callback_data="maybe")
+    )
     return kb
 
 def render_text(data, limit):
-    header = f"⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\nОСНОВНОЙ СОСТАВ: {limit} мест\n———————\n\n"
-    if not data: return header + "Пока никто не записался."
-    all_yes = sorted([{'id': k, **v} for k, v in data.items() if v['answer'] == 'yes'], key=lambda x: x['time'])
+    # Полоски переехали строго под первую строку
+    header = "⚽️ ЗАПИСЬ НА ФУТБОЛ ⚽️\n"
+    header += "—————————————————\n"
+    header += f"ОСНОВНОЙ СОСТАВ: {limit} мест\n\n"
+    
+    if not data:
+        return header + "Пока никто не записался."
+
+    # Сортировка по времени для Основы и Резерва
+    all_yes = sorted([{'id': k, **v} for k, v in data.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
+    
+    # Списки для остальных категорий
     sections = {'maybe': [], 'no': [], 'sick': []}
     for uid, info in data.items():
-        if info['answer'] in sections: sections[info['answer']].append(info.get('name'))
-    main = all_yes[:limit]; res_team = all_yes[limit:]
+        ans = info.get('answer')
+        if ans in sections:
+            sections[ans].append(info.get('name'))
+
+    main = all_yes[:limit]
+    res_team = all_yes[limit:]
+
+    # Блок БУДУ
     res = header + f"Буду 🔥 ({len(main)}/{limit}):\n"
-    for i, p in enumerate(main, 1): res += f"{i}. {p['name']}\n"
+    for i, p in enumerate(main, 1):
+        res += f"{i}. {p['name']}\n"
+
+    # Блок РЕЗЕРВ
     if res_team:
         res += f"\n🟠 РЕЗЕРВ ({len(res_team)}):\n"
-        for i, p in enumerate(res_team, 1): res += f"{i}. {p['name']}\n"
-    if any(sections.values()):
-        res += "\n———————"
-        if sections['maybe']: res += f"\n⏳ ПОД ВОПРОСОМ: {', '.join(sections['maybe'])}"
-    return res
+        for i, p in enumerate(res_team, 1):
+            res += f"{i}. {p['name']}\n"
+
+    # Блоки ПОД ВОПРОСОМ, НЕ БУДУ, БОЛЕЮ (с нумерацией и переносом)
+    footer = ""
+    if sections['maybe']:
+        footer += f"\n⏳ ПОД ВОПРОСОМ:\n"
+        for i, name in enumerate(sections['maybe'], 1):
+            footer += f"{i}. {name}\n"
+            
+    if sections['no']:
+        footer += f"\n👎 НЕ БУДУТ:\n"
+        for i, name in enumerate(sections['no'], 1):
+            footer += f"{i}. {name}\n"
+            
+    if sections['sick']:
+        footer += f"\n🤧 БОЛЕЮТ:\n"
+        for i, name in enumerate(sections['sick'], 1):
+            footer += f"{i}. {name}\n"
+            
+    return res + footer

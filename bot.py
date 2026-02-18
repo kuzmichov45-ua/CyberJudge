@@ -11,7 +11,6 @@ from config import dp, bot, run
 from database import load_votes, save_votes
 import handlers as h
 
-# Самопинг
 def self_ping():
     while True:
         try: requests.get("https://cyberjudge-test.onrender.com/")
@@ -35,6 +34,7 @@ async def send_poll(chat_id):
         if last_poll_msg_id:
             try: await bot.delete_message(chat_id, last_poll_msg_id)
             except: pass
+        # Вызываем без await
         text = h.render_text(votes, current_limit)
         msg = await bot.send_message(chat_id, text, reply_markup=h.get_keyboard())
         last_poll_msg_id = msg.message_id
@@ -57,7 +57,6 @@ async def cmd_up(m: types.Message):
     q = await m.answer("🔄 **Введите через пробел: [№ резерва] [№ основы]**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
-# ВОТ ЭТА КОМАНДА ТЕПЕРЬ ЕСТЬ:
 @dp.message_handler(commands=['excel'])
 async def cmd_excel(m: types.Message):
     if not await is_admin(m): return

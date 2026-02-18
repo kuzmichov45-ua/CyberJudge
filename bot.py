@@ -60,21 +60,29 @@ async def cmd_up(m: types.Message):
 @dp.message_handler(commands=['excel'])
 async def cmd_excel(m: types.Message):
     if not await is_admin(m): return
-    try: await m.delete()
-    except: pass
+    
+    # Это удалит твоё сообщение "/excel" из чата
+    try:
+        await m.delete()
+    except:
+        pass
+    
     all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
     data = []
     for uid, info in votes.items():
-        st = info.get('answer')
-        if st == 'yes':
-            st = 'Основа' if any(p['id'] == uid for p in all_yes[:current_limit]) else 'Резерв'
-        data.append({'Имя': info.get('name'), 'Статус': st})
+        ans = info.get('answer')
+        status = ans
+        if ans == 'yes':
+            status = 'Основа' if any(p['id'] == uid for p in all_yes[:current_limit]) else 'Резерв'
+        data.append({'Имя': info.get('name'), 'Статус': status})
     
     df = pd.DataFrame(data)
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
     out.seek(0)
+    
+    # Отправляем файл
     await m.answer_document(types.InputFile(out, filename="football_list.xlsx"))
 
 @dp.message_handler(commands=['reset'])

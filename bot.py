@@ -61,7 +61,7 @@ async def cmd_poll(m: types.Message):
     try: await m.delete()
     except: pass
     h.waiting_for[m.from_user.id] = 'limit'
-    q = await m.answer("🔢 **Введите лимит игроков:**")
+    q = await m.answer("🔢 **Введіть ліміт співробітників:**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['up'])
@@ -70,7 +70,7 @@ async def cmd_up(m: types.Message):
     try: await m.delete()
     except: pass
     h.waiting_for[m.from_user.id] = 'up_numbers'
-    q = await m.answer("🔄 **Введите через пробел: [№ резерва] [№ основы]**")
+    q = await m.answer("🔄 **Введіть через пробіл: [№ резерву] [№ основи]**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['excel'])
@@ -101,10 +101,10 @@ async def cmd_reset(m: types.Message):
     try: await m.delete()
     except: pass
     kb = types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton("✅ Да, очистить", callback_data="confirm_reset"),
-        types.InlineKeyboardButton("❌ Отмена", callback_data="cancel")
+        types.InlineKeyboardButton("✅ Так, очистити", callback_data="confirm_reset"),
+        types.InlineKeyboardButton("❌ Скасувати", callback_data="cancel")
     )
-    await m.answer("♻️ **Сбросить список?**", reply_markup=kb)
+    await m.answer("♻️ **Скинути список персоналу?**", reply_markup=kb)
 
 @dp.message_handler(lambda m: m.from_user.id in h.waiting_for)
 async def handle_input(m: types.Message):

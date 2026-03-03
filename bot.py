@@ -1,125 +1,162 @@
-import os
-import io
+import threading
+import time
 import pandas as pd
-from datetime import datetime
-from aiogram import executor, types
-from config import dp, bot  # Імпортуємо тільки те, що реально є в config.py
+import io
+import asyncio
+import requests
+from flask import Flask # Для статуса Live
+from aiogram import types
+from aiogram.utils import executor
+
+from config import dp, bot, run
 from database import load_votes, save_votes
 import handlers as h
 
-# Функція перевірки прав адміністратора (щоб не прописувати ID вручну)
-async def is_admin(message: types.Message):
-    if message.chat.type == 'private':
-        return True  # В особистих повідомленнях ти сам собі адмін
-    member = await bot.get_chat_member(message.chat.id, message.from_user.id)
-    return member.is_chat_admin() or member.status == 'creator'
+# --- БЛОК ДЛЯ RENDER (чтобы горел статус LIVE) ---
+app = Flask('')
+@app.route('/')
+def home(): return "Бот работает!"
 
-@dp.message_handler(commands=['start', 'poll'])
-async def cmd_poll(m: types.Message):
-    if not await is_admin(m):
-        return await m.answer("❌ Ця команда тільки для адміністраторів!")
+def run_web():
+    # Render дает порт в переменных окружения, обычно 10000
+    app.run(host='0.0.0.0', port=10000)
+
+threading.Thread(target=run_web, daemon=True).start()
+# ------------------------------------------------
+
+votes = load_votes()
+current_limit = 12
+last_poll_msg_id = None
+poll_lock = asyncio.Lock()
+
+# Проверка админа БЕЗ автоматического удаления (удаляем сами в командах)
+async def is_admin(message: types.Message):
+    member = await message.chat.get_member(message.from_user.id)
+    if member.is_chat_admin() or member.status == 'creator':
+        return True
     
+    # Если пишет не админ:
+    try:
+        await message.delete() # Удаляем его сообщение с командой
+        tmp = await message.answer("❌ Эта команда только для администраторов!")
+        await asyncio.sleep(5) # Ждем 5 секунд
+        await tmp.delete()     # Удаляем предупреждение бота
+    except:
+        pass
+    return False
+
+async def send_poll(chat_id):
+    global last_poll_msg_id
+    async with poll_lock:
+        if last_poll_msg_id:
+            try: await bot.delete_message(chat_id, last_poll_msg_id)
+            except: pass
+        text = h.render_text(votes, current_limit)
+        msg = await bot.send_message(chat_id, text, reply_markup=h.get_keyboard())
+        last_poll_msg_id = msg.message_id
+
+@dp.message_handler(commands=['poll'])
+async def cmd_poll(m: types.Message):
+    if not await is_admin(m): return
+    try: await m.delete()
+    except: pass
     h.waiting_for[m.from_user.id] = 'limit'
-    await m.answer("🔢 **Введіть ліміт співробітників:**")
+    q = await m.answer("🔢 **Введите лимит игроков:**")
+    h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['up'])
 async def cmd_up(m: types.Message):
-    if not await is_admin(m):
-        return
-    h.waiting_for[m.from_user.id] = 'up'
-    await m.answer("🔄 **Введіть через пробіл: [№ резерву] [№ основи]**")
+    if not await is_admin(m): return
+    try: await m.delete()
+    except: pass
+    h.waiting_for[m.from_user.id] = 'up_numbers'
+    q = await m.answer("🔄 **Введите через пробел: [№ резерва] [№ основы]**")
+    h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['excel'])
 async def cmd_excel(m: types.Message):
-    if not await is_admin(m):
-        return
-    votes = load_votes()
-    if not votes:
-        return await m.answer("Список порожній")
+    if not await is_admin(m): return
+    try: await m.delete() # ТЕПЕРЬ КОМАНДА УДАЛЯЕТСЯ
+    except: pass
     
-    df = pd.DataFrame([{
-        "Прізвище Ім'я": v['name'],
-        "Статус": v['answer'],
-        "Час запису": datetime.fromtimestamp(v['time']).strftime('%H:%M:%S')
-    } for v in votes.values()])
+    all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
+    data = []
+    for uid, info in votes.items():
+        ans = info.get('answer')
+        status = ans
+        if ans == 'yes':
+            status = 'Основа' if any(p['id'] == uid for p in all_yes[:current_limit]) else 'Резерв'
+        data.append({'Имя': info.get('name'), 'Статус': status})
     
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Staff')
-    output.seek(0)
-    
-    await m.answer_document(types.InputFile(output, filename="sahno_staff_list.xlsx"))
+    df = pd.DataFrame(data)
+    out = io.BytesIO()
+    with pd.ExcelWriter(out, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    out.seek(0)
+    await m.answer_document(types.InputFile(out, filename="football_list.xlsx"))
 
 @dp.message_handler(commands=['reset'])
 async def cmd_reset(m: types.Message):
-    if not await is_admin(m):
-        return
+    if not await is_admin(m): return
+    try: await m.delete()
+    except: pass
     kb = types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton("Так, очистити ✅", callback_data="confirm_reset"),
-        types.InlineKeyboardButton("Скасувати ❌", callback_data="cancel_reset")
+        types.InlineKeyboardButton("✅ Да, очистить", callback_data="confirm_reset"),
+        types.InlineKeyboardButton("❌ Отмена", callback_data="cancel")
     )
-    await m.answer("⚠️ **Скинути список персоналу?**", reply_markup=kb)
+    await m.answer("♻️ **Сбросить список?**", reply_markup=kb)
 
-@dp.message_handler()
+@dp.message_handler(lambda m: m.from_user.id in h.waiting_for)
 async def handle_input(m: types.Message):
     uid = m.from_user.id
     state = h.waiting_for.get(uid)
-    
-    if not state:
-        return
-
     if state == 'limit' and m.text.isdigit():
-        limit = int(m.text)
-        empty_votes = {}
-        save_votes(empty_votes)
-        
-        text = h.render_text(empty_votes, limit)
-        msg = await m.answer(text, reply_markup=h.get_keyboard(), parse_mode="Markdown")
-        
-        # Оновлюємо ліміт та ID повідомлення в БД, якщо це передбачено твоєю database.py
-        # Якщо ні — просто видаляємо стан очікування
-        del h.waiting_for[uid]
+        global current_limit, votes
+        current_limit = int(m.text)
+        votes = {}; save_votes(votes)
+        await clean_admin_msg(m)
+    elif state == 'up_numbers':
+        args = m.text.split()
+        if len(args) == 2 and all(a.isdigit() for a in args):
+            all_yes = sorted([{'id': k, **v} for k, v in votes.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
+            try:
+                r_idx, m_idx = int(args[0])-1, int(args[1])-1
+                rid = all_yes[current_limit:][r_idx]['id']
+                mid = all_yes[:current_limit][m_idx]['id']
+                votes[rid]['time'], votes[mid]['time'] = votes[mid]['time'], votes[rid]['time']
+                save_votes(votes)
+                await clean_admin_msg(m)
+            except: pass
 
-    elif state == 'up':
-        # Логіка підняття з резерву (залишаємо як було)
-        del h.waiting_for[uid]
-        await m.answer("Функція переміщення оновлена. Використовуйте кнопки.")
+async def clean_admin_msg(m):
+    uid = m.from_user.id
+    try:
+        await m.delete()
+        await bot.delete_message(m.chat.id, h.waiting_for[f"msg_{uid}"])
+    except: pass
+    h.waiting_for.pop(uid, None)
+    h.waiting_for.pop(f"msg_{uid}", None)
+    await send_poll(m.chat.id)
 
-@dp.callback_query_handler(lambda c: c.data in ["confirm_reset", "cancel_reset"])
+@dp.callback_query_handler(lambda c: c.data in ["confirm_reset", "cancel"])
 async def cb_reset(cb: types.CallbackQuery):
-    if not await is_admin(cb.message):
-        return await cb.answer("Доступ заборонено", show_alert=True)
-        
     if cb.data == "confirm_reset":
-        save_votes({})
-        await cb.message.edit_text("♻️ Список персоналу очищено")
-    else:
-        await cb.message.delete()
+        global votes, last_poll_msg_id
+        votes = {}; save_votes(votes)
+        if last_poll_msg_id:
+            try: await bot.delete_message(cb.message.chat.id, last_poll_msg_id)
+            except: pass
+            last_poll_msg_id = None
+        await cb.message.edit_text("♻️ Список очищен")
+        await asyncio.sleep(3)
+        try: await cb.message.delete()
+        except: pass
+    else: await cb.message.delete()
 
 @dp.callback_query_handler()
 async def handle_vote(cb: types.CallbackQuery):
-    votes = load_votes()
-    
-    # Записуємо або оновлюємо голос
-    votes[str(cb.from_user.id)] = {
-        'name': cb.from_user.full_name,
-        'answer': cb.data,
-        'time': datetime.now().timestamp()
-    }
-    save_votes(votes)
-    await cb.answer()
-    
-    # Оновлюємо текст (тут важливо знати ліміт, за замовчуванням 12 або беремо з БД)
-    # Якщо ліміт не зберігається окремо, можна додати його в database.py
-    try:
-        await cb.message.edit_text(
-            h.render_text(votes, 12), 
-            reply_markup=h.get_keyboard(), 
-            parse_mode="Markdown"
-        )
-    except Exception:
-        pass
+    votes[str(cb.from_user.id)] = {'name': cb.from_user.full_name, 'answer': cb.data, 'time': time.time()}
+    save_votes(votes); await cb.answer(); await send_poll(cb.message.chat.id)
 
-if __name__ == '__main__':
-    # Встановлюємо меню при запуску
+if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True, on_startup=lambda d: h.set_main_menu(bot))

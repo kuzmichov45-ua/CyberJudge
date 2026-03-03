@@ -38,7 +38,7 @@ async def is_admin(message: types.Message):
     # Если пишет не админ:
     try:
         await message.delete() # Удаляем его сообщение с командой
-        tmp = await message.answer("❌ Эта команда только для администраторов!")
+        tmp = await message.answer("❌ Ця команда тільки для адміністраторів!")
         await asyncio.sleep(5) # Ждем 5 секунд
         await tmp.delete()     # Удаляем предупреждение бота
     except:
@@ -61,7 +61,7 @@ async def cmd_poll(m: types.Message):
     try: await m.delete()
     except: pass
     h.waiting_for[m.from_user.id] = 'limit'
-    q = await m.answer("🔢 **Введите лимит игроков:**")
+    q = await m.answer("🔢 **Введіть ліміт співробітників:**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['up'])
@@ -70,7 +70,7 @@ async def cmd_up(m: types.Message):
     try: await m.delete()
     except: pass
     h.waiting_for[m.from_user.id] = 'up_numbers'
-    q = await m.answer("🔄 **Введите через пробел: [№ резерва] [№ основы]**")
+    q = await m.answer("🔄 **Введіть через пробіл: [№ резерву] [№ основи]**")
     h.waiting_for[f"msg_{m.from_user.id}"] = q.message_id
 
 @dp.message_handler(commands=['excel'])
@@ -93,7 +93,7 @@ async def cmd_excel(m: types.Message):
     with pd.ExcelWriter(out, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
     out.seek(0)
-    await m.answer_document(types.InputFile(out, filename="football_list.xlsx"))
+    await m.answer_document(types.InputFile(out, filename="sahno_staff_list.xlsx"))
 
 @dp.message_handler(commands=['reset'])
 async def cmd_reset(m: types.Message):
@@ -101,10 +101,10 @@ async def cmd_reset(m: types.Message):
     try: await m.delete()
     except: pass
     kb = types.InlineKeyboardMarkup().add(
-        types.InlineKeyboardButton("✅ Да, очистить", callback_data="confirm_reset"),
-        types.InlineKeyboardButton("❌ Отмена", callback_data="cancel")
+        types.InlineKeyboardButton("✅ Так, очистити", callback_data="confirm_reset"),
+        types.InlineKeyboardButton("❌ Скасувати", callback_data="cancel")
     )
-    await m.answer("♻️ **Сбросить список?**", reply_markup=kb)
+    await m.answer("♻️ **Скинути список персоналу?**", reply_markup=kb)
 
 @dp.message_handler(lambda m: m.from_user.id in h.waiting_for)
 async def handle_input(m: types.Message):
@@ -147,7 +147,7 @@ async def cb_reset(cb: types.CallbackQuery):
             try: await bot.delete_message(cb.message.chat.id, last_poll_msg_id)
             except: pass
             last_poll_msg_id = None
-        await cb.message.edit_text("♻️ Список очищен")
+        await cb.message.edit_text("♻️ Список очищений")
         await asyncio.sleep(3)
         try: await cb.message.delete()
         except: pass

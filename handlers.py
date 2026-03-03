@@ -1,8 +1,5 @@
-import time
-import asyncio
-import pandas as pd
-import io
-from aiogram import types
+import logging
+from aiogram import Bot, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
 # Состояния ожидания
@@ -28,53 +25,48 @@ def get_keyboard():
     return kb
 
 def render_text(data, limit):
-    # Полоски строго под первой строкой
-    header = "📋 ЗАПИС НА ЗМІНУ SAHNO\n"
-    header += "—————————————————\n"
+    header = "📋 **ЗАПИС НА ЗМІНУ SAHNO**\n"
+    header += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
     header += f"📍 ОСНОВНИЙ СКЛАД: {limit} місць\n\n"
     
     if not data:
         return header + "Поки що ніхто не записався."
 
+    # Разделение по статусам
+    yes_list = [v for v in data if v['status'] == 'yes']
+    maybe = [v for v in data if v['status'] == 'maybe']
+    no = [v for v in data if v['status'] == 'no']
+    sick = [v for v in data if v['status'] == 'sick']
+
     # Сортировка по времени
-    all_yes = sorted([{'id': k, **v} for k, v in data.items() if v.get('answer') == 'yes'], key=lambda x: x['time'])
+    yes_list.sort(key=lambda x: x['time'])
     
-    # Списки для остальных
-    sections = {'maybe': [], 'no': [], 'sick': []}
-    for uid, info in data.items():
-        ans = info.get('answer')
-        if ans in sections:
-            sections[ans].append(info.get('name'))
+    main = yes_list[:limit]
+    res_team = yes_list[limit:]
 
-    main = all_yes[:limit]
-    res_team = all_yes[limit:]
+    res = header + f"**Буде** ✅ ({len(main)}/{limit}):\n"
+    for i, v in enumerate(main, 1):
+        res += f"{i}. {v['name']}\n"
 
-    # Блок Буду
-    res = header + f"Буду 🔥 ({len(main)}/{limit}):\n"
-    for i, p in enumerate(main, 1):
-        res += f"{i}. {p['name']}\n"
-
-    # Блок Резерв
     if res_team:
-        res += f"\n🟠 РЕЗЕРВ ({len(res_team)}):\n"
-        for i, p in enumerate(res_team, 1):
-            res += f"{i}. {p['name']}\n"
+        res += f"\n**РЕЗЕРВ** ({len(res_team)}):\n"
+        for i, v in enumerate(res_team, 1):
+            res += f"{i}. {v['name']}\n"
 
-    # Блоки Под вопросом / Не буду / Болею (с нумерацией и переносом строки)
     footer = ""
-    if sections['maybe']:
-        footer += f"\n⏳ ПІД ПИТАННЯМ:\n"
-        for i, name in enumerate(sections['maybe'], 1):
-            footer += f"{i}. {name}\n"
-            
-    if sections['no']:
-        footer += f"\n👎 НЕ БУДУТЬ:\n"
-        for i, name in enumerate(sections['no'], 1):
-            footer += f"{i}. {name}\n"
-            
-    if sections['sick']:
-        footer += f"\n🤧 НА ЛІКАРНЯНОМУ:\n"
-        for i, name in enumerate(sections['sick'], 1):
-            footer += f"{i}. {name}\n"
-            
+    if maybe:
+        footer += f"\n**ПІД ПИТАННЯМ** ⏳:\n"
+        for i, v in enumerate(maybe, 1):
+            footer += f"{i}. {v['name']}\n"
+    
+    if no:
+        footer += f"\n**НЕ БУДУТЬ** ❌:\n"
+        for i, v in enumerate(no, 1):
+            footer += f"{i}. {v['name']}\n"
+
+    if sick:
+        footer += f"\n**НА ЛІКАРНЯНОМУ** 🤒:\n"
+        for i, v in enumerate(sick, 1):
+            footer += f"{i}. {v['name']}\n"
+
     return res + footer
